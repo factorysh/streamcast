@@ -14,8 +14,8 @@ func TestOgg(t *testing.T) {
 	o := New(r)
 	p, err := o.Page()
 	assert.NoError(t, err)
-	assert.Equal(t, "OggS_beuha_", string(p))
+	assert.Equal(t, "OggS_beuha_", string(p.raw))
 	p, err = o.Page()
 	assert.NoError(t, err)
-	assert.Equal(t, "OggS_aussi_", string(p))
+	assert.Equal(t, "OggS_aussi_", string(p.raw))
 }

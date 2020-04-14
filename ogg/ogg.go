@@ -12,8 +12,6 @@ type OggReader struct {
 	buffer []byte
 }
 
-type Page []byte
-
 func New(r io.Reader) *OggReader {
 	return &OggReader{
 		reader: r,
@@ -22,7 +20,7 @@ func New(r io.Reader) *OggReader {
 	}
 }
 
-func (r *OggReader) Page() (Page, error) {
+func (r *OggReader) Page() (*Page, error) {
 	for {
 		for {
 			if len(r.buffer) == 0 {
@@ -37,7 +35,7 @@ func (r *OggReader) Page() (Page, error) {
 				r.poz = poz
 				continue
 			}
-			page := r.buffer[r.poz : poz+1]
+			page := NewPage(r.buffer[r.poz : poz+1])
 			r.poz = 0
 			r.buffer = r.buffer[poz+1:]
 			return page, nil

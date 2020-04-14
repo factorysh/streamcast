@@ -36,6 +36,13 @@ type flusherWriter struct {
 	end     context.CancelFunc
 }
 
+func (s *Streamer) Read(buff []byte) {
+	for _, client := range s.clients {
+		client.writer.Write(buff)
+		client.flusher.Flush()
+	}
+}
+
 func (s *Streamer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.Proto)
 	fmt.Println(r)
@@ -70,12 +77,21 @@ func (s *Streamer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(500)
 			return
 		}
+		w.Header().Add("Content-Type", "audio/ogg")
+		w.Header().Add("Cache-Control", "no-cache")
+		w.Header().Add("Connection", "keep-alive")
+		w.Header().Add("Pragma", "no-cache")
+		w.WriteHeader(200)
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		s.clients[s.nextID()] = &flusherWriter{
+		id := s.nextID()
+		s.clients[id] = &flusherWriter{
 			flusher: f,
 			writer:  w,
 			end:     cancelFunc,
 		}
+		defer func() {
+			delete(s.clients, id)
+		}()
 		select {
 		case <-ctx.Done():
 			return
@@ -85,6 +101,37 @@ func (s *Streamer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	s := New()
-	http.Handle("/", s)
-	icecast.Listen("0.0.0.0:5000")
+	//h2s := &http2.Server{}
+	mux := http.NewServeMux()
+	mux.Handle("/stream", s)
+	mux.Handle("/", http.FileServer(http.Dir("./static/")))
+
+	/*l, err := net.Listen("tcp", "0.0.0.0:5001")
+	if err != nil {
+		panic(err)
+	}
+	*/
+
+	i := icecast.New()
+	i.Reader = s.Read
+	go i.Listen("0.0.0.0:5000")
+	/*
+		fmt.Println("Web")
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				panic(err)
+			}
+			h2s.ServeConn(conn, &http2.ServeConnOpts{
+				Handler: mux,
+			})
+		}
+	*/
+	http.ListenAndServe(":5001", mux)
+	/*
+		h1s := &http.Server{
+			Addr:    ":5001",
+			Handler: h2c.NewHandler(mux, h2s),
+		}
+	*/
 }

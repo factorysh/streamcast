@@ -30,20 +30,20 @@ type pageHeader struct {
 }
 
 type Page struct {
-	raw    []byte
+	Raw    []byte
 	header *pageHeader
 }
 
 func NewPage(raw []byte) *Page {
 	return &Page{
-		raw: raw,
+		Raw: raw,
 	}
 }
 
 func (p *Page) Header() *pageHeader {
 	if p.header == nil {
 		var h pageHeader
-		err := binary.Read(bytes.NewBuffer(p.raw[0:27]), byteOrder, &h)
+		err := binary.Read(bytes.NewBuffer(p.Raw[0:27]), byteOrder, &h)
 		if err != nil {
 			panic(err)
 		}

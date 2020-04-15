@@ -31,19 +31,12 @@ func NewPage(raw []byte) *Page {
 
 func (p *Page) Header() *pageHeader {
 	if p.header == nil {
-		_ = binary.Read(bytes.NewBuffer(p.raw[0:27]), byteOrder, p.header)
+		var h pageHeader
+		err := binary.Read(bytes.NewBuffer(p.raw[0:27]), byteOrder, &h)
+		if err != nil {
+			panic(err)
+		}
+		p.header = &h
 	}
 	return p.header
-}
-
-func (p Page) Type() byte {
-	return 0
-}
-
-func (p Page) Serial() uint32 {
-	return 0
-}
-
-func (p Page) Granule() int64 {
-	return 0
 }

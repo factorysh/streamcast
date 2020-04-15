@@ -2,7 +2,6 @@ package ogg
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 )
 
@@ -27,7 +26,6 @@ func (r *OggReader) Page() (*Page, error) {
 				break
 			}
 			poz := bytes.Index(r.buffer[r.poz+1:], []byte("OggS"))
-			fmt.Println("poz", r.poz, poz, string(r.buffer))
 			if poz == -1 {
 				break
 			}

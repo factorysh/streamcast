@@ -1,11 +1,22 @@
 package ogg
 
+/*
+
+https://en.wikipedia.org/wiki/Ogg
+
+*/
 import (
 	"bytes"
 	"encoding/binary"
 )
 
 var byteOrder = binary.LittleEndian
+
+const (
+	Continuation = uint8(1)
+	BOS          = uint8(2)
+	EOS          = uint8(4)
+)
 
 type pageHeader struct {
 	OggS          [4]byte // 0-3, always == "OggS"

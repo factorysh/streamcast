@@ -2,24 +2,46 @@ package ogg
 
 import (
 	"bytes"
+	"context"
 	"io"
 )
 
-type OggReader struct {
-	reader io.Reader
-	poz    int
-	buffer []byte
+type PageWriter interface {
+	WritePage(*Page) error
 }
 
-func New(r io.Reader) *OggReader {
-	return &OggReader{
+type OggReader struct {
+	reader io.Reader
+	writer PageWriter
+	poz    int
+	buffer []byte
+	errors chan error
+}
+
+func Stream(ctx context.Context, r io.Reader, w PageWriter) error {
+	o := &OggReader{
 		reader: r,
+		writer: w,
 		poz:    -1,
 		buffer: make([]byte, 0),
+		errors: make(chan error),
+	}
+	go func() {
+		for {
+			o.streamOnePage()
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case error := <-o.errors:
+			return error
+		}
 	}
 }
 
-func (r *OggReader) Page() (*Page, error) {
+func (r *OggReader) streamOnePage() {
 	for {
 		for {
 			if len(r.buffer) == 0 {
@@ -36,12 +58,17 @@ func (r *OggReader) Page() (*Page, error) {
 			page := NewPage(r.buffer[r.poz : poz+1])
 			r.poz = 0
 			r.buffer = r.buffer[poz+1:]
-			return page, nil
+			err := r.writer.WritePage(page)
+			if err != nil {
+				r.errors <- err
+			}
+			return
 		}
 		chunk := make([]byte, 500*1024)
 		n, err := r.reader.Read(chunk)
 		if err != nil {
-			return nil, err
+			r.errors <- err
+			return
 		}
 		r.buffer = append(r.buffer, chunk[:n]...)
 	}

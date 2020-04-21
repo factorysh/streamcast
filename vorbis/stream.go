@@ -3,12 +3,16 @@ package vorbis
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/factorysh/streamcast/ogg"
 )
 
 type Streams struct {
 	streams map[uint32]*Stream
+	current uint32
+	lock    sync.RWMutex
+	Pipe    ogg.PageWriter
 }
 
 func NewStreams() *Streams {
@@ -17,8 +21,16 @@ func NewStreams() *Streams {
 	}
 }
 
+func (s *Streams) CurrentStream() *Stream {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.streams[s.current]
+}
+
 func (s *Streams) WritePage(page *ogg.Page) error {
 	header := page.Header()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	stream, ok := s.streams[header.Serial]
 	if !ok { // new Stream
 		if header.HeaderType != ogg.BOS {
@@ -30,12 +42,17 @@ func (s *Streams) WritePage(page *ogg.Page) error {
 		stream = &Stream{
 			headers: []*ogg.Page{page},
 		}
+		stream.Pipe = s.Pipe
 		s.streams[header.Serial] = stream
+		s.current = header.Serial
 		return nil
 	}
 	if header.HeaderType == ogg.EOS {
+		s.lock.Unlock()
 		defer func() {
+			s.lock.Lock()
 			delete(s.streams, header.Serial)
+			s.lock.Unlock()
 		}()
 	}
 	return stream.WritePage(page)
@@ -43,6 +60,7 @@ func (s *Streams) WritePage(page *ogg.Page) error {
 
 type Stream struct {
 	headers []*ogg.Page
+	Pipe    ogg.PageWriter
 }
 
 func NewStream() *Stream {
@@ -58,6 +76,9 @@ func (s *Stream) WritePage(page *ogg.Page) error {
 		}
 		s.headers = append(s.headers, page)
 		return nil
+	}
+	if s.Pipe != nil {
+		s.Pipe.WritePage(page)
 	}
 	return nil
 }

@@ -2,47 +2,55 @@ package icecast
 
 import (
 	"bufio"
-	"bytes"
+	"context"
 	"fmt"
-	"io"
 	"net"
-	"time"
+	"strings"
 
-	"github.com/mccoyst/ogg"
+	"github.com/factorysh/streamcast/ogg"
 )
 
 type IcePUT struct {
-	Stream chan []byte
-	Reader func([]byte)
+	writer ogg.PageWriter
 }
 
-func New() *IcePUT {
+func New(writer ogg.PageWriter) *IcePUT {
 	return &IcePUT{
-		Stream: make(chan []byte),
-		Reader: func(buff []byte) {
-			fmt.Print(len(buff))
-		},
+		writer: writer,
 	}
 }
 
 func (i *IcePUT) handleConnection(c net.Conn) {
 	l := 0
 	for {
-		fmt.Print(c.RemoteAddr(), l, " ")
+		fmt.Println(c.RemoteAddr(), l, " ")
 		b := bufio.NewReader(c)
+		expect := false
+		source := false
 		for {
 			netData, err := b.ReadString('\n')
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
-			fmt.Print(netData)
+			fmt.Print(l, netData)
+			if strings.HasPrefix(netData, "Expect") {
+				expect = true
+			}
+			if strings.HasPrefix(netData, "SOURCE") && l == 0 {
+				source = true
+			}
 			if netData == "\r\n" {
 				break
 			}
 			l++
 		}
-		c.Write([]byte("HTTP/1.1 100 Continue\r\n"))
+		if expect {
+			c.Write([]byte("HTTP/1.1 100 Continue\r\n"))
+		}
+		if source {
+			c.Write([]byte("HTTP/1.0 200 OK\r\n"))
+		}
 		c.Write([]byte("Server: Streamcast\r\n"))
 		c.Write([]byte("Connection: Close\r\n"))
 		c.Write([]byte("Accept-Encoding: identity\r\n"))
@@ -50,39 +58,8 @@ func (i *IcePUT) handleConnection(c net.Conn) {
 		c.Write([]byte("Cache-Control: no-cache\r\n"))
 		c.Write([]byte("\r\n"))
 
-		var buffer *bytes.Buffer
-		for {
-			chunk := make([]byte, 1024*1024)
-			n, err := b.Read(chunk)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			if n == 0 {
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			if buffer == nil {
-				buffer = bytes.NewBuffer(chunk)
-			} else {
-				buffer.Write(chunk)
-			}
-			for {
-				decoder := ogg.NewDecoder(buffer)
-				page, err := decoder.Decode()
-				if err != nil {
-					if err == io.ErrUnexpectedEOF || err == io.EOF {
-						break
-					}
-					fmt.Println(err)
-					return
-				}
-				fmt.Println(page.Type)
-				raw := page.Packet
-				i.Reader(raw)
-			}
-			//fmt.Println(n)
-		}
+		ctx := context.TODO()
+		ogg.Stream(ctx, c, i.writer)
 	}
 }
 

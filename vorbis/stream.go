@@ -41,8 +41,8 @@ func (s *Streams) WritePage(page *ogg.Page) error {
 		}
 		stream = &Stream{
 			headers: []*ogg.Page{page},
+			Pipe:    s.Pipe,
 		}
-		stream.Pipe = s.Pipe
 		s.streams[header.Serial] = stream
 		s.current = header.Serial
 		return nil
@@ -70,6 +70,9 @@ func NewStream() *Stream {
 }
 
 func (s *Stream) WritePage(page *ogg.Page) error {
+	if s.Pipe != nil {
+		s.Pipe.WritePage(page)
+	}
 	if len(s.headers) == 1 { // Vorbis starts with 2 pages of headers
 		if page.Header().Granule != 0 {
 			return errors.New("Vorbis starts with 2 pages of headers")
@@ -77,16 +80,17 @@ func (s *Stream) WritePage(page *ogg.Page) error {
 		s.headers = append(s.headers, page)
 		return nil
 	}
-	if s.Pipe != nil {
-		s.Pipe.WritePage(page)
-	}
 	return nil
 }
 
-func (s *Stream) WriteBegining(w ogg.WriterFlusher) {
+func (s *Stream) WriteBegining(w ogg.WriterFlusher) bool {
 	// FIXME are all needed headers already here?
+	if len(s.headers) < 2 {
+		return false
+	}
 	for _, h := range s.headers {
 		w.Write(h.Raw)
 	}
 	w.Flush()
+	return true
 }

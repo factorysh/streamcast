@@ -13,26 +13,29 @@ type PubSub struct {
 }
 
 type ventilator struct {
-	subscribers map[int64]ogg.WriterFlusher
+	subscribers map[int64]*Subscriber
 	cpt         int64
 	lock        sync.RWMutex
 }
 
 func NewPubSub() *PubSub {
+	v := &ventilator{
+		subscribers: make(map[int64]*Subscriber),
+	}
+	s := NewStreams()
+	s.Pipe = v
 	return &PubSub{
-		streams: NewStreams(),
-		ventilator: &ventilator{
-			subscribers: make(map[int64]ogg.WriterFlusher),
-		},
+		streams:    s,
+		ventilator: v,
 	}
 }
 
 func (v *ventilator) WritePage(page *ogg.Page) error {
 	v.lock.RLock()
-	defer v.lock.Unlock()
+	defer v.lock.RUnlock()
 	for _, subscriber := range v.subscribers {
-		subscriber.Write(page.Raw)
-		subscriber.Flush()
+		subscriber.writer.Write(page.Raw)
+		subscriber.writer.Flush()
 	}
 	// FIXME, never fail, really?
 	return nil
@@ -42,12 +45,24 @@ func (p *PubSub) WritePage(page *ogg.Page) error {
 	return p.streams.WritePage(page)
 }
 
+type Subscriber struct {
+	writer  ogg.WriterFlusher
+	started bool
+}
+
 func (p *PubSub) Subscribe(ctx context.Context, w ogg.WriterFlusher) {
 	p.ventilator.lock.Lock()
 	id := p.ventilator.cpt
-	p.ventilator.subscribers[id] = w
+	sub := &Subscriber{
+		writer:  w,
+		started: false,
+	}
+	current := p.streams.CurrentStream()
+	if current != nil {
+		sub.started = current.WriteBegining(w)
+	}
+	p.ventilator.subscribers[id] = sub
 	p.ventilator.cpt++
-	p.streams.CurrentStream().WriteBegining(w)
 	p.ventilator.lock.Unlock()
 	go func() {
 		select {

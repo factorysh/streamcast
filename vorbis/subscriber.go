@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/apex/log"
 	"github.com/factorysh/streamcast/ogg"
 )
 
@@ -34,6 +35,11 @@ func (v *ventilator) WritePage(page *ogg.Page) error {
 	v.lock.RLock()
 	defer v.lock.RUnlock()
 	for _, subscriber := range v.subscribers {
+		log.WithFields(log.Fields{
+			"subscriber": subscriber,
+			"serial":     page.Header().Serial,
+			"granule":    page.Header().Granule,
+		}).Info("Ventilator")
 		subscriber.writer.Write(page.Raw)
 		subscriber.writer.Flush()
 	}
@@ -42,6 +48,10 @@ func (v *ventilator) WritePage(page *ogg.Page) error {
 }
 
 func (p *PubSub) WritePage(page *ogg.Page) error {
+	/*log.WithFields(log.Fields{
+		"serial":  page.Header().Serial,
+		"granule": page.Header().Granule,
+	}).Info("Write a Page")*/
 	return p.streams.WritePage(page)
 }
 
@@ -72,4 +82,5 @@ func (p *PubSub) Subscribe(ctx context.Context, w WriterFlusher) {
 			p.ventilator.lock.Unlock()
 		}
 	}()
+	log.Info("New subscriber")
 }

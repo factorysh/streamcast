@@ -18,6 +18,7 @@ type OggReader struct {
 	errors chan error
 }
 
+// Stream read a io.Reader and writes Page
 func Stream(ctx context.Context, r io.Reader, w PageWriter) error {
 	o := &OggReader{
 		reader: r,

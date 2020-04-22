@@ -8,6 +8,11 @@ import (
 	"github.com/factorysh/streamcast/ogg"
 )
 
+type WriterFlusher interface {
+	Flush()
+	Write([]byte)
+}
+
 type Streams struct {
 	streams map[uint32]*Stream
 	current uint32
@@ -83,7 +88,7 @@ func (s *Stream) WritePage(page *ogg.Page) error {
 	return nil
 }
 
-func (s *Stream) WriteBegining(w ogg.WriterFlusher) bool {
+func (s *Stream) WriteBegining(w WriterFlusher) bool {
 	// FIXME are all needed headers already here?
 	if len(s.headers) < 2 {
 		return false

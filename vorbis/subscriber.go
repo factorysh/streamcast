@@ -46,11 +46,11 @@ func (p *PubSub) WritePage(page *ogg.Page) error {
 }
 
 type Subscriber struct {
-	writer  ogg.WriterFlusher
+	writer  WriterFlusher
 	started bool
 }
 
-func (p *PubSub) Subscribe(ctx context.Context, w ogg.WriterFlusher) {
+func (p *PubSub) Subscribe(ctx context.Context, w WriterFlusher) {
 	p.ventilator.lock.Lock()
 	id := p.ventilator.cpt
 	sub := &Subscriber{

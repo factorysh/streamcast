@@ -4,6 +4,8 @@ package ogg
 
 https://en.wikipedia.org/wiki/Ogg
 
+Large part of this code came from https://github.com/mccoyst/ogg © 2016 Steve McCoy
+
 */
 import (
 	"bytes"

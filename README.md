@@ -22,4 +22,4 @@ Open the webpage http://localhost:5001 and click play, will ear sound with few s
 Licence
 -------
 
-3 termds BSD licence. ©2020 Mathieu Lecarme.
+3 terms BSD licence. ©2020 Mathieu Lecarme.

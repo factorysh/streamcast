@@ -1,3 +1,5 @@
+.PHONY: cmd
+
 dev: | build serve
 
 serve:
@@ -5,3 +7,7 @@ serve:
 
 build:
 	go build .
+
+cmd:
+	go build -o debug cmd/debug.go
+	go build -o copy cmd/copy.go
